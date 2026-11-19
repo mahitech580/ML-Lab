@@ -60,3 +60,22 @@ def test_detect_target_candidates():
     manager.load_builtin("customer_churn")
     candidates = manager.detect_target_candidates()
     assert "churn" in candidates
+
+def test_string_extension_columns_are_reported_and_suggested_as_targets():
+    manager = DatasetManager()
+    manager.dataframe = pd.DataFrame({
+        "segment": pd.Series(["north", "south", "north", "south"], dtype="string"),
+        "outcome": pd.Series(["yes", "no", "yes", "no"], dtype="string"),
+        "tier": pd.Series(["basic", "plus", "basic", "plus"], dtype="category"),
+        "amount": [10, 20, 30, 40],
+    })
+    manager.name = "string-dtype-regression"
+
+    info = manager.get_info()
+    candidates = manager.detect_target_candidates()
+
+    assert {"segment", "outcome", "tier"} <= set(info.categorical_columns)
+    assert "amount" in info.numerical_columns
+    assert "segment" in candidates
+    assert "outcome" in candidates
+
