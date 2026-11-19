@@ -109,7 +109,16 @@ class DatasetManager:
             raise DatasetLoadError("No dataset is currently loaded.")
         df = self.dataframe
         numerical = df.select_dtypes(include="number").columns.tolist()
-        categorical = df.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
+        categorical = [
+            col
+            for col in df.columns
+            if (
+                pd.api.types.is_object_dtype(df[col].dtype)
+                or pd.api.types.is_string_dtype(df[col].dtype)
+                or isinstance(df[col].dtype, pd.CategoricalDtype)
+                or pd.api.types.is_bool_dtype(df[col].dtype)
+            )
+        ]
         datetime_cols = df.select_dtypes(include=["datetime", "datetimetz"]).columns.tolist()
 
         return DatasetInfo(
@@ -141,7 +150,13 @@ class DatasetManager:
             if col in candidates:
                 continue
             nunique = df[col].nunique(dropna=True)
-            if df[col].dtype == object and 1 < nunique <= 20:
+            dtype = df[col].dtype
+            is_categorical = (
+                pd.api.types.is_object_dtype(dtype)
+                or pd.api.types.is_string_dtype(dtype)
+                or isinstance(dtype, pd.CategoricalDtype)
+            )
+            if is_categorical and 1 < nunique <= 20:
                 candidates.append(col)
         return candidates
 
