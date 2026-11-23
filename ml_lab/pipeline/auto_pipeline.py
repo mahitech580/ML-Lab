@@ -89,7 +89,12 @@ class AutoPipeline:
 
         # 3. Clean: drop duplicates + constant columns, impute missing values
         working = self.cleaner.remove_duplicates(df)
-        working = self.cleaner.remove_constant_columns(working)
+        constant_features = [
+            column
+            for column in working.columns
+            if column != target and working[column].nunique(dropna=True) <= 1
+        ]
+        working = self.cleaner.remove_columns(working, constant_features)
         working = self.cleaner.handle_missing_values(working, strategy="median")
         working = self.cleaner.handle_missing_values(working, strategy="mode")
         self._report(result, "Missing values handled")
@@ -97,7 +102,16 @@ class AutoPipeline:
         # 4. Identify features
         feature_df = working.drop(columns=[target])
         numerical_features = feature_df.select_dtypes(include="number").columns.tolist()
-        categorical_features = feature_df.select_dtypes(include=["object", "category"]).columns.tolist()
+        categorical_features = [
+            column
+            for column in feature_df.columns
+            if (
+                pd.api.types.is_object_dtype(feature_df[column].dtype)
+                or pd.api.types.is_string_dtype(feature_df[column].dtype)
+                or isinstance(feature_df[column].dtype, pd.CategoricalDtype)
+                or pd.api.types.is_bool_dtype(feature_df[column].dtype)
+            )
+        ]
         feature_columns = numerical_features + categorical_features
         self._report(result, "Features processed")
 
