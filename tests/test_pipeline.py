@@ -1,4 +1,6 @@
 """Tests for the automated end-to-end ML pipeline."""
+import pandas as pd
+
 from ml_lab.data.dataset_manager import DatasetManager
 from ml_lab.pipeline.auto_pipeline import AutoPipeline
 
@@ -59,3 +61,60 @@ def test_pipeline_reports_error_on_invalid_target(tmp_path, monkeypatch):
         df=df, dataset_name="iris", target="not_a_column", problem_type="classification"
     )
     assert result.errors
+
+
+def test_pipeline_includes_string_and_boolean_features(tmp_path, monkeypatch):
+    import joblib
+    import config
+
+    monkeypatch.setattr(config, "SAVED_MODELS_DIR", tmp_path / "models")
+    monkeypatch.setattr(config, "EXPERIMENTS_DIR", tmp_path / "experiments")
+    monkeypatch.setattr(config, "REPORTS_DIR", tmp_path / "reports")
+
+    rows = 40
+    frame = pd.DataFrame({
+        "record_id": range(rows),
+        "segment": pd.Series(["north", "south"] * 20, dtype="string"),
+        "active": pd.Series([True, False] * 20, dtype="boolean"),
+        "target": pd.Series(["yes", "no"] * 20, dtype="string"),
+    })
+
+    result = AutoPipeline().run(
+        df=frame,
+        dataset_name="categorical-features",
+        target="target",
+        problem_type="classification",
+        candidate_models=["decision_tree_classifier"],
+    )
+
+    assert not result.errors, result.errors
+    pipeline = joblib.load(result.model_path)
+    categorical_columns = next(
+        columns
+        for name, _transformer, columns in pipeline.named_steps["preprocessor"].transformers
+        if name == "cat"
+    )
+    assert categorical_columns == ["segment", "active"]
+
+
+def test_pipeline_rejects_constant_regression_target(tmp_path, monkeypatch):
+    import config
+
+    monkeypatch.setattr(config, "SAVED_MODELS_DIR", tmp_path / "models")
+    monkeypatch.setattr(config, "EXPERIMENTS_DIR", tmp_path / "experiments")
+    monkeypatch.setattr(config, "REPORTS_DIR", tmp_path / "reports")
+
+    frame = pd.DataFrame({
+        "feature": range(30),
+        "target": [12.5] * 30,
+    })
+
+    result = AutoPipeline().run(
+        df=frame,
+        dataset_name="constant-target",
+        target="target",
+        problem_type="regression",
+    )
+
+    assert result.errors
+    assert "at least two distinct target values" in result.errors[0]
