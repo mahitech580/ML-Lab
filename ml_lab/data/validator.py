@@ -67,6 +67,8 @@ class DataValidator:
         elif problem_type == "regression":
             if not pd.api.types.is_numeric_dtype(series):
                 errors.append("Regression requires a numeric target column.")
+            elif n_unique < 2:
+                errors.append("Regression requires at least two distinct target values.")
             elif n_unique < 5:
                 warnings.append(
                     "Target has very few unique numeric values; consider classification instead."
