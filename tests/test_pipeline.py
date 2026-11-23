@@ -1,4 +1,6 @@
 """Tests for the automated end-to-end ML pipeline."""
+import pandas as pd
+
 from ml_lab.data.dataset_manager import DatasetManager
 from ml_lab.pipeline.auto_pipeline import AutoPipeline
 
